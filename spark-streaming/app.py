@@ -3,13 +3,9 @@ from pyspark import SparkContext,SparkConf
 from pyspark.streaming import StreamingContext
 from pyspark.sql import SQLContext
 from pyspark.streaming.kafka import KafkaUtils
+from firebase import firebase
 
-import sys
-reload(sys)
-sys.setdefaultencoding('utf8')
-
-
-def process(dfr,rdd):
+def process(dfr,firebase,rdd):
     print("\033[92mGOT EVENTS\033[0m")
     events=rdd.collect()
     totalEvents=len(events)
@@ -34,6 +30,10 @@ def process(dfr,rdd):
     .filter(jsonDataEvents["type"]=="ForkEvent").count()
     memberEvents=jsonDataEvents\
     .filter(jsonDataEvents["type"]=="MemberEvent").count()
+    releaseEvents=jsonDataEvents\
+    .filter(jsonDataEvents["type"]=="ReleaseEvent").count()
+    consideredEvents=createEvents+pushEvents+pullRequestsEvents+deleteEvents+issueEvents+watchEvents+forkEvents+memberEvents+releaseEvents
+    otherEvents=totalEvents-consideredEvents
     print("Number of create events %d"%createEvents)
     print("Number of push events %d"%pushEvents)
     print("Number of pull requests %d"%pullRequestsEvents)
@@ -42,7 +42,26 @@ def process(dfr,rdd):
     print("Number of watch events %d"%watchEvents)
     print("Number of fork evetns %d"%forkEvents)
     print("Number of new members %d"%memberEvents)
+    print("Number of release events %d"%releaseEvents)
+    print("Other events %d"%otherEvents)
+    #Get the values from firebase
+    oldTotals=firebase.get('/totals',None)
+    print(oldTotals)
+    #Update the totals
+    updatedTotals=firebase.put('/','totals',\
+    {'total_events':oldTotals['total_events']+totalEvents,\
+     'release_events':oldTotals['release_events']+releaseEvents,\
+     'other_events':oldTotals['other_events']+otherEvents,\
+     'member_events':oldTotals['member_events']+memberEvents,\
+     'create_events':oldTotals['create_events']+createEvents,\
+     'pull_request_events':oldTotals['pull_request_events']+pullRequestsEvents,\
+     'issues_events':oldTotals['issues_events']+issueEvents,\
+     'push_events':oldTotals['push_events']+pushEvents,\
+     'fork_events':oldTotals['fork_events']+forkEvents,\
+     'delete_events':oldTotals['delete_events']+deleteEvents,\
+     'watch_events':oldTotals['watch_events']+watchEvents})
 
+    print("UPDATED ",updatedTotals)
 
 #    for i in events:
 #        jsonData = dfr\
@@ -55,7 +74,9 @@ def process(dfr,rdd):
 #        data["created_at"]))
 
 if __name__ == '__main__':
-    print("Running SPARK STREAMING APP")
+    print("------ RUNNING SPARK STREAMING APP ------")
+    firebase = firebase.FirebaseApplication('https://github-events-bigdata.firebaseio.com/')
+    print("--- CONNECTED TO FIREBASE ---")
     conf = SparkConf().setAppName('KafkaSparkConsumer').setMaster('local[2]')
     sc=SparkContext(conf = conf)
     sqlContext = SQLContext(sc)
@@ -70,6 +91,6 @@ if __name__ == '__main__':
     lines = messages.map(lambda x: x[1])
     #lines.pprint()
     dataFrameReader = sqlContext.read
-    lines.foreachRDD(lambda rdd: process(dataFrameReader,rdd) if (rdd.count()) else False)
+    lines.foreachRDD(lambda rdd: process(dataFrameReader,firebase,rdd) if (rdd.count()) else False)
     ssc.start()
     ssc.awaitTermination()
