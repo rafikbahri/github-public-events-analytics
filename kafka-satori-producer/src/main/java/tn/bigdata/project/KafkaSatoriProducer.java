@@ -11,7 +11,7 @@ public class KafkaSatoriProducer {
     static final String endpoint = "wss://open-data.api.satori.com";
     static final String appkey = "f1eACC7e0b5B5e8C44Cc648eBe9fac13";
     static final String channel = "github-events";
-    static final String topicName = "ProjectTopic";
+    static final String topicName = "GithubEventsTopic";
 
 
     public static void main(String[] args) throws Exception{

@@ -1,5 +1,5 @@
-# github-public-events-analytics
-Github Public Events Analytics
+# GitHub Events Analytics 
+
 
 ## RUN
 1. Run Kafka Satori Producer
